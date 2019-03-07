@@ -54,6 +54,7 @@ class MidiInputHandler(object):
                     self.last_note_time = time.time()
                 else:
                     self.queue.append(note_id)
+                    self.queue.sort()
                     threading.Timer(self.last_note_time + self.time_window * len(self.queue) - time.time(), self.press_note).start()
 
     def press_note(self):
