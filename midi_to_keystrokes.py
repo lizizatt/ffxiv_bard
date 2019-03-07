@@ -8,6 +8,7 @@ from __future__ import print_function
 
 import logging
 import sys
+import threading
 import time
 
 from pynput.keyboard import Key, Controller
@@ -25,6 +26,10 @@ class MidiInputHandler(object):
         self.keys_string = '''aksldf;g'h[jq2w3er5t6y7ui]z\\xc,v.b/nm'''
         self.num_keys = len(self.keys_string)
         self.base_note = 12*4 # c4
+        self.last_note_time = time.time()
+        self.last_note = -1
+        self.queue = []
+        self.time_window = .1
 
     def __call__(self, event, data=None):
         message, deltatime = event
@@ -43,11 +48,26 @@ class MidiInputHandler(object):
             note_id = message[1] - self.base_note
             print("Note on %d" % note_id)
             if note_id >= 0 and note_id < self.num_keys:
-                self.keyboard.press(self.keys_string[note_id])
+                if (time.time() > (self.last_note_time + self.time_window)):
+                    self.keyboard.press(self.keys_string[note_id])
+                    self.last_note = note_id
+                    self.last_note_time = time.time()
+                else:
+                    self.queue.append(note_id)
+                    threading.Timer(self.last_note_time + self.time_window * len(self.queue) - time.time(), self.press_note).start()
 
-        # Get first four bits
+    def press_note(self):
+        note_id = self.queue[0]
+        self.queue = self.queue[1:]
+        self.last_note_time = time.time()
+        self.last_note = note_id
 
-        # Get first four bits of th
+        self.keyboard.press(self.keys_string[note_id])
+        threading.Timer(self.time_window, self.unpress_note).start()
+
+    def unpress_note(self):
+        self.keyboard.release(self.keys_string[self.last_note])
+
 
 # Prompts user for MIDI input port, unless a valid port number or name
 # is given as the first argument on the command line.
